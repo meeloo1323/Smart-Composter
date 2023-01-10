@@ -66,6 +66,7 @@ Activate tumbler when hot, cold, wet, or dry
 */
 void loop() 
 { 
+  //==================== Sensor Readings ====================
   //*DS18B20: temperature sesnor*
   sensors.requestTemperatures(); 
   Serial.print("Temperature: ");
@@ -80,8 +81,11 @@ void loop()
   Serial.print(percentageHumidity);
   Serial.println("%");
 
+  //==================== Data Processing ====================
+
+  //==================== System and Subsystem activations ====================
 
 
-  Serial.println();
+  //==================== UI readout ====================
   delay(1000);
 }
