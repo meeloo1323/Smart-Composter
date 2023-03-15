@@ -21,19 +21,19 @@ const int DRY_VALUE = 499;
 const int WET_VALUE = 220;
 
 //Temperature low (When is it too cold, Celsius)
-const int TEMPERATURE_HIGH = 13;
+const int TEMPERATURE_LOW = 13;
 
 //Temperature high (When is it too hot, Celsius)
-const int TEMPERATURE_LOW = 68;
+const int TEMPERATURE_HIGH = 68;
 
 //How often to poll the sensors (minutes)
-const int POLL_TIME = 10;
+const unsigned long POLL_TIME = 1;
 
 //How long to run the tumbling motor (seconds)
-const int TUMBLE_TIME = 60;
+const unsigned long TUMBLE_TIME = 60;
 
 //How long to run the water pump (seconds)
-const int WATER_PUMP_TIME = 5;
+const unsigned long WATER_PUMP_TIME = 5;
 
 //==================== Pins ====================
 //OneWire bus pin (This will be our temperature sensor)
@@ -43,7 +43,7 @@ const int ONE_WIRE_BUS = 2;
 const int MOISTURE_SENSOR = 0;
 
 //Manual tumble push button detection pin (digital in)
-const int TUMBLE_BUTTON = 13;
+const int TUMBLE_BUTTON = 4;
 
 //Float switch detection pin (digital in)
 const int FLOAT_SWITCH = 7;
@@ -73,14 +73,27 @@ bool waterPumpNeeded = false;
 bool waterPresenceDetected = false;
 
 //Stores milliseconds for a non-blocking functionality
-int pollMillis = 0; //Sensor polling
-int tumbleMillis = 0; //Tumbler motor on/off
-int waterPumpMillis = 0; //Water pump on/off
+unsigned long pollMillis = 0; //Sensor polling
+unsigned long tumbleMillis = 0; //Tumbler motor on/off
+unsigned long waterPumpMillis = 0; //Water pump on/off
 
 void setup() 
 { 
   Serial.begin(9600); //set the serial port to 9600
+  delay(500);
+  sensors.begin();
   pollMillis = millis();
+  pinMode(MOISTURE_SENSOR, INPUT);
+  pinMode(TUMBLE_BUTTON, INPUT);
+  pinMode(FLOAT_SWITCH, INPUT);
+
+  pinMode(MOTOR_TRANSISTOR, OUTPUT);
+  pinMode(WATER_PUMP_TRANSISTOR, OUTPUT);
+  pinMode(WET_LED, OUTPUT);
+  pinMode(DRY_LED, OUTPUT);
+  pinMode(COLD_LED, OUTPUT);
+  pinMode(HOT_LED, OUTPUT);
+  pinMode(EMPTY_TANK_LED, OUTPUT);
   delay(500);
 }
 
@@ -93,10 +106,10 @@ Activate tumbler when hot, cold, wet, or dry
 void loop() 
 { 
   //Polling tumble button regardless of elapsed time to act as an interrupt
-  if (digitalRead(TUMBLE_BUTTON) == HIGH)
+  if (digitalRead(TUMBLE_BUTTON))
     tumbleNeeded = true;
 
-  if (millis() - pollMillis > POLL_TIME * 60 * 1000)
+  if ((millis() - pollMillis) > (POLL_TIME * 60 * 1000))
   {
     pollMillis = millis();
 
@@ -104,33 +117,32 @@ void loop()
     //DS18B20: temperature sensor
     sensors.requestTemperatures();
     int temperature = sensors.getTempCByIndex(0);
+    delay(500);
 
     //Soil moisture sensor
     int temporary = analogRead(MOISTURE_SENSOR);
+    delay(500);
     int moisture = map(temporary, WET_VALUE, DRY_VALUE, 100, 0);
+    delay(500);
+
+    Serial.println("NEW");
+    Serial.println("TEMPERATURE");
+    Serial.println(temperature);
+    Serial.println("MOISTURE");
+    Serial.println(moisture);
 
     //Water presence detection
     if (digitalRead(FLOAT_SWITCH) == LOW)
       waterPresenceDetected = false;
+    else
+      waterPresenceDetected = true;
 
     //==================== Data Processing ====================
-    bool hot, cold, wet, dry;
-    hot = false;
-    cold = false;
+    bool wet, dry, cold, hot;
     wet = false;
     dry = false;
-
-    //Temperature
-    if (TEMPERATURE_HIGH < temperature)
-    {
-      hot = true;
-      tumbleNeeded = true;
-    }
-    else if (temperature < TEMPERATURE_LOW)
-    {
-      cold = true;
-      tumbleNeeded = true;
-    }
+    cold = false;
+    hot = false;
 
     //Moisture
     if (WET_PERCENTAGE < moisture)
@@ -145,18 +157,20 @@ void loop()
       waterPumpNeeded = true;
       tumbleNeeded = true;
     }
+
+    //Temperature
+    if (temperature < TEMPERATURE_LOW)
+    {
+      cold = true;
+      tumbleNeeded = true;
+    }
+    else if (TEMPERATURE_HIGH < temperature)
+    {
+      hot = true;
+      tumbleNeeded = true;
+    }
     
     //==================== UI readout ====================
-    if (hot)
-      digitalWrite(HOT_LED, HIGH);
-    else
-      digitalWrite(HOT_LED, LOW);
-    
-    if (cold)
-      digitalWrite(COLD_LED, HIGH);
-    else
-      digitalWrite(COLD_LED, LOW);
-    
     if (wet)
       digitalWrite(WET_LED, HIGH);
     else
@@ -166,6 +180,16 @@ void loop()
       digitalWrite(DRY_LED, HIGH);
     else
       digitalWrite(DRY_LED, LOW);
+    
+    if (cold)
+      digitalWrite(COLD_LED, HIGH);
+    else
+      digitalWrite(COLD_LED, LOW);
+
+    if (hot)
+      digitalWrite(HOT_LED, HIGH);
+    else
+      digitalWrite(HOT_LED, LOW);
 
     if (!waterPresenceDetected)
       digitalWrite(EMPTY_TANK_LED, HIGH);
@@ -174,11 +198,15 @@ void loop()
   }
 
   //==================== System and Subsystem activations ====================
+  if (tumbleNeeded)
+    tumbleSystem();
+
   if (waterPumpNeeded)
     waterPumpSystem();
 
-  if (tumbleNeeded)
-    tumbleSystem();
+  //==================== Debugeridoos ====================
+  delay(500);
+  
 }
 
 //==================== Helper Functions ====================
@@ -195,7 +223,7 @@ void tumbleSystem()
   }
 
   //Otherwise if our tumbling time has been met
-  else if (millis() - tumbleMillis >= TUMBLE_TIME)
+  else if (millis() - tumbleMillis >= TUMBLE_TIME * 1000)
   {
     tumbleNeeded = false;
     tumbleMillis = 0;
@@ -216,7 +244,7 @@ void waterPumpSystem()
   }
 
   //Otherwise if our pumping time has been met
-  else if (millis() - waterPumpMillis >= WATER_PUMP_TIME)
+  else if (millis() - waterPumpMillis >= WATER_PUMP_TIME * 1000)
   {
     waterPumpNeeded = false;
     waterPumpMillis = 0;
