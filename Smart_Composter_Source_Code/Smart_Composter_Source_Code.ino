@@ -21,10 +21,10 @@ const int DRY_VALUE = 499;
 const int WET_VALUE = 220;
 
 //Temperature low (When is it too cold, Celsius)
-const int TEMPERATURE_LOW = 13;
+const int TEMPERATURE_LOW = 50;
 
 //Temperature high (When is it too hot, Celsius)
-const int TEMPERATURE_HIGH = 68;
+const int TEMPERATURE_HIGH = 70;
 
 //How often to poll the sensors (minutes)
 const unsigned long POLL_TIME = 1;
